@@ -27,6 +27,11 @@
       box-sizing: border-box;
     }
 
+    html, body {
+      overflow-x: hidden;
+      max-width: 100vw;
+    }
+
     body {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: var(--bg);
@@ -238,6 +243,8 @@
       max-width: 720px;
       margin: 0 auto;
       width: 100%;
+      min-width: 0;
+      overflow-x: hidden;
     }
 
     .surah-header {
@@ -285,6 +292,9 @@
       padding: 12px 14px;
       margin-bottom: 10px;
       transition: border-color 0.2s, box-shadow 0.2s;
+      overflow: hidden;
+      width: 100%;
+      max-width: 100%;
     }
 
     .ayah-card.playing {
@@ -311,11 +321,13 @@
       font-size: 11px;
       font-weight: 700;
       color: var(--accent);
+      flex-shrink: 0;
     }
 
     .ayah-actions {
       display: flex;
       gap: 6px;
+      flex-shrink: 0;
     }
 
     .btn-play {
@@ -344,13 +356,20 @@
     }
 
     .arabic-text {
-      font-family: 'Amiri', serif;
+      font-family: 'Amiri', 'Scheherazade New', 'Traditional Arabic', 'Segoe UI', Tahoma, serif;
       font-size: 22px;
-      line-height: 1.75;
+      line-height: 1.85;
       text-align: right;
       direction: rtl;
+      unicode-bidi: embed;
       margin-bottom: 8px;
       color: #f0f4f8;
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      max-width: 100%;
+      display: block;
+      width: 100%;
     }
 
     .transliteration {
@@ -360,12 +379,18 @@
       margin-bottom: 6px;
       line-height: 1.5;
       letter-spacing: 0.01em;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      max-width: 100%;
     }
 
     .translation {
       font-size: 13px;
       color: var(--text-muted);
       line-height: 1.5;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      max-width: 100%;
     }
 
     /* Player Bar */
@@ -480,6 +505,229 @@
     @media (max-width: 768px) {
       .sidebar {
         position: fixed;
+        left: -100%;
+        top: 52px;
+        width: 100%;
+        max-width: 300px;
+        height: calc(100vh - 52px);
+        z-index: 150;
+        transition: left 0.3s ease;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+      }
+
+      .sidebar.open {
+        left: 0;
+      }
+
+      .sidebar-toggle {
+        display: flex;
+      }
+
+      .overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 140;
+      }
+
+      .overlay.show {
+        display: block;
+      }
+
+      .arabic-text {
+        font-size: 20px;
+        line-height: 1.8;
+      }
+
+      .ayah-card {
+        padding: 10px 12px;
+      }
+
+      .transliteration {
+        font-size: 12px;
+      }
+
+      .translation {
+        font-size: 12.5px;
+      }
+
+      .main {
+        padding: 10px 10px 90px;
+      }
+    }
+
+    /* Footer credit */
+    .credit {
+      text-align: center;
+      padding: 16px 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      margin-top: 24px;
+    }
+
+    .credit strong {
+      color: var(--accent);
+    }
+
+    /* Continuous play toggle */
+    .play-all-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+
+    .play-all-btn:hover {
+      background: var(--accent);
+      color: #0f1419;
+    }
+
+    .play-all-btn.active {
+      background: var(--accent);
+      color: #0f1419;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <button class="btn-icon sidebar-toggle" id="sidebarToggle" title="Daftar Surah">☰</button>
+      <div class="logo">ق</div>
+      <h1>Al-Qur'an Murattal <span>Dev GrenTzy</span></h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" id="btnTheme" title="Tema">🌙</button>
+    </div>
+  </header>
+
+  <div class="overlay" id="overlay"></div>
+
+  <div class="container">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <input type="text" class="search-box" id="searchSurah" placeholder="Cari surah...">
+      </div>
+      <ul class="surah-list" id="surahList">
+        <!-- Surah list will be generated -->
+      </ul>
+    </aside>
+
+    <main class="main" id="mainContent">
+      <div class="empty-state">
+        <div style="font-size: 48px; margin-bottom: 16px;">📖</div>
+        <p>Pilih surah dari daftar untuk mulai membaca & mendengarkan murattal.</p>
+        <p style="margin-top: 8px; font-size: 13px;">Audio: Mishary Rashid Alafasy</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Player Bar -->
+  <div class="player-bar" id="playerBar">
+    <div class="player-inner">
+      <div class="player-info">
+        <div class="player-title" id="playerTitle">—</div>
+        <div class="player-subtitle" id="playerSubtitle">Alafasy</div>
+      </div>
+      <div class="player-controls">
+        <button class="btn-ctrl" id="btnPrev" title="Sebelumnya">⏮</button>
+        <button class="btn-ctrl main" id="btnPlayPause" title="Putar/Jeda">▶</button>
+        <button class="btn-ctrl" id="btnNext" title="Berikutnya">⏭</button>
+        <button class="btn-ctrl" id="btnStop" title="Stop">⏹</button>
+      </div>
+    </div>
+  </div>
+
+  <audio id="audioPlayer" preload="none"></audio>
+
+  <script>
+    // ========== DATA ==========
+    const SURAHS = [
+      {id:1, name:"Al-Fatihah", arabic:"الفاتحة", verses:7, type:"Makkiyah"},
+      {id:2, name:"Al-Baqarah", arabic:"البقرة", verses:286, type:"Madaniyah"},
+      {id:3, name:"Ali 'Imran", arabic:"آل عمران", verses:200, type:"Madaniyah"},
+      {id:4, name:"An-Nisa'", arabic:"النساء", verses:176, type:"Madaniyah"},
+      {id:5, name:"Al-Ma'idah", arabic:"المائدة", verses:120, type:"Madaniyah"},
+      {id:6, name:"Al-An'am", arabic:"الأنعام", verses:165, type:"Makkiyah"},
+      {id:7, name:"Al-A'raf", arabic:"الأعراف", verses:206, type:"Makkiyah"},
+      {id:8, name:"Al-Anfal", arabic:"الأنفال", verses:75, type:"Madaniyah"},
+      {id:9, name:"At-Taubah", arabic:"التوبة", verses:129, type:"Madaniyah"},
+      {id:10, name:"Yunus", arabic:"يونس", verses:109, type:"Makkiyah"},
+      {id:11, name:"Hud", arabic:"هود", verses:123, type:"Makkiyah"},
+      {id:12, name:"Yusuf", arabic:"يوسف", verses:111, type:"Makkiyah"},
+      {id:13, name:"Ar-Ra'd", arabic:"الرعد", verses:43, type:"Madaniyah"},
+      {id:14, name:"Ibrahim", arabic:"إبراهيم", verses:52, type:"Makkiyah"},
+      {id:15, name:"Al-Hijr", arabic:"الحجر", verses:99, type:"Makkiyah"},
+      {id:16, name:"An-Nahl", arabic:"النحل", verses:128, type:"Makkiyah"},
+      {id:17, name:"Al-Isra'", arabic:"الإسراء", verses:111, type:"Makkiyah"},
+      {id:18, name:"Al-Kahf", arabic:"الكهف", verses:110, type:"Makkiyah"},
+      {id:19, name:"Maryam", arabic:"مريم", verses:98, type:"Makkiyah"},
+      {id:20, name:"Taha", arabic:"طه", verses:135, type:"Makkiyah"},
+      {id:21, name:"Al-Anbiya'", arabic:"الأنبياء", verses:112, type:"Makkiyah"},
+      {id:22, name:"Al-Hajj", arabic:"الحج", verses:78, type:"Madaniyah"},
+      {id:23, name:"Al-Mu'minun", arabic:"المؤمنون", verses:118, type:"Makkiyah"},
+      {id:24, name:"An-Nur", arabic:"النور", verses:64, type:"Madaniyah"},
+      {id:25, name:"Al-Furqan", arabic:"الفرقان", verses:77, type:"Makkiyah"},
+      {id:26, name:"Asy-Syu'ara'", arabic:"الشعراء", verses:227, type:"Makkiyah"},
+      {id:27, name:"An-Naml", arabic:"النمل", verses:93, type:"Makkiyah"},
+      {id:28, name:"Al-Qasas", arabic:"القصص", verses:88, type:"Makkiyah"},
+      {id:29, name:"Al-'Ankabut", arabic:"العنكبوت", verses:69, type:"Makkiyah"},
+      {id:30, name:"Ar-Rum", arabic:"الروم", verses:60, type:"Makkiyah"},
+      {id:31, name:"Luqman", arabic:"لقمان", verses:34, type:"Makkiyah"},
+      {id:32, name:"As-Sajdah", arabic:"السجدة", verses:30, type:"Makkiyah"},
+      {id:33, name:"Al-Ahzab", arabic:"الأحزاب", verses:73, type:"Madaniyah"},
+      {id:34, name:"Saba'", arabic:"سبأ", verses:54, type:"Makkiyah"},
+      {id:35, name:"Fatir", arabic:"فاطر", verses:45, type:"Makkiyah"},
+      {id:36, name:"Yasin", arabic:"يس", verses:83, type:"Makkiyah"},
+      {id:37, name:"As-Saffat", arabic:"الصافات", verses:182, type:"Makkiyah"},
+      {id:38, name:"Sad", arabic:"ص", verses:88, type:"Makkiyah"},
+      {id:39, name:"Az-Zumar", arabic:"الزمر", verses:75, type:"Makkiyah"},
+      {id:40, name:"Ghafir", arabic:"غافر", verses:85, type:"Makkiyah"},
+      {id:41, name:"Fussilat", arabic:"فصلت", verses:54, type:"Makkiyah"},
+      {id:42, name:"Asy-Syura", arabic:"الشورى", verses:53, type:"Makkiyah"},
+      {id:43, name:"Az-Zukhruf", arabic:"الزخرف", verses:89, type:"Makkiyah"},
+      {id:44, name:"Ad-Dukhan", arabic:"الدخان", verses:59, type:"Makkiyah"},
+      {id:45, name:"Al-Jasiyah", arabic:"الجاثية", verses:37, type:"Makkiyah"},
+      {id:46, name:"Al-Ahqaf", arabic:"الأحقاف", verses:35, type:"Makkiyah"},
+      {id:47, name:"Muhammad", arabic:"محمد", verses:38, type:"Madaniyah"},
+      {id:48, name:"Al-Fath", arabic:"الفتح", verses:29, type:"Madaniyah"},
+      {id:49, name:"Al-Hujurat", arabic:"الحجرات", verses:18, type:"Madaniyah"},
+      {id:50, name:"Qaf", arabic:"ق", verses:45, type:"Makkiyah"},
+      {id:51, name:"Az-Zariyat", arabic:"الذاريات", verses:60, type:"Makkiyah"},
+      {id:52, name:"At-Tur", arabic:"الطور", verses:49, type:"Makkiyah"},
+      {id:53, name:"An-Najm", arabic:"النجم", verses:62, type:"Makkiyah"},
+      {id:54, name:"Al-Qamar", arabic:"القمر", verses:55, type:"Makkiyah"},
+      {id:55, name:"Ar-Rahman", arabic:"الرحمن", verses:78, type:"Madaniyah"},
+      {id:56, name:"Al-Waqi'ah", arabic:"الواقعة", verses:96, type:"Makkiyah"},
+      {id:57, name:"Al-Hadid", arabic:"الحديد", verses:29, type:"Madaniyah"},
+      {id:58, name:"Al-Mujadilah", arabic:"المجادلة", verses:22, type:"Madaniyah"},
+      {id:59, name:"Al-Hasyr", arabic:"الحشر", verses:24, type:"Madaniyah"},
+      {id:60, name:"Al-Mumtahanah", arabic:"الممتحنة", verses:13, type:"Madaniyah"},
+      {id:61, name:"As-Saff", arabic:"الصف", verses:14, type:"Madaniyah"},
+      {id:62, name:"Al-Jumu'ah", arabic:"الجمعة", verses:11, type:"Madaniyah"},
+      {id:63, name:"Al-Munafiqun", arabic:"المنافقون", verses:11, type:"Madaniyah"},
+      {id:64, name:"At-Tagabun", arabic:"التغابن", verses:18, type:"Madaniyah"},
+      {id:65, name:"At-Talaq", arabic:"الطلاق", verses:12, type:"Madaniyah"},
+      {id:66, name:"At-Tahrim", arabic:"التحريم", verses:12, type:"Madaniyah"},
+      {id:67, name:"Al-Mulk", arabic:"الملك", verses:30, type:"Makkiyah"},
+      {id:68, name:"Al-Qalam", arabic:"القلم", verses:52, type:"Makkiyah"},
+      {id:69, name:"Al-Haqqah", arabic:"الحاقة", verses:52, type:"Makkiyah"},
+      {id:70, name:"Al-Ma'arij", arabic:"المعارج", verses:44, type:"Makkiyah"},
+      {id:71, name:"Nuh", arabic:"نوح", verses:28, type:"Makkiyah"},
+      {id:72, name:"Al-Jinn", arabic:"الجن", verses:28, type:"Makkiyah"},
+      {id:73, name:"Al-Muzzammil", arabic:"المزمل", verses:20, type:"Makkiyah"},
+      {id:74, name:"Al-Muddassir", arabic:"المدثر", verses:56, type:"Makkiyah"},
+      {id:75, name:"Al-Qiyamah", arabic:"القي
         left: -100%;
         top: 52px;
         width: 100%;
